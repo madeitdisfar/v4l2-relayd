@@ -1,0 +1,10 @@
+# Track only the recipe, service, configs and docs; makepkg's sources, build
+# trees and packages stay untracked
+/*
+!/.gitignore
+!/PKGBUILD
+!/README.md
+!/LICENSE
+!/v4l2-relayd.service
+!/v4l2-relayd-modprobe.conf
+!/*.patch

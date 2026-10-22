@@ -1,0 +1,32 @@
+# Virtual camera for apps that read /dev/video directly (Discord).
+#
+# Copies the libcamera camera from PipeWire into a v4l2loopback device. The
+# real camera only runs while an app has the virtual camera open; otherwise
+# the device shows a black frame. Change the settings below with
+# `systemctl --user edit v4l2-relayd`.
+
+[Unit]
+Description=Virtual V4L2 camera relayed from PipeWire
+After=pipewire.service wireplumber.service
+Wants=pipewire.service
+
+[Service]
+# PipeWire camera node to relay (pw-cli ls Node, node.name)
+Environment="VIDEOSRC=pipewiresrc target-object=libcamera_input.__SB_.PC00.LNK0 ! video/x-raw,width=1280,height=720 ! videoconvert"
+Environment=FORMAT=YUY2
+Environment=WIDTH=1280
+Environment=HEIGHT=720
+Environment=FRAMERATE=30/1
+# Must match card_label in /usr/lib/modprobe.d/v4l2-relayd.conf
+Environment="CARD_LABEL=Built-in Front Camera (Virtual)"
+# Restart the camera when it runs below 10 fps for this long (0 = off)
+Environment=STALL_TIMEOUT_MS=1000
+ExecStart=/bin/sh -c 'dev=$$(grep -lxF "$${CARD_LABEL}" /sys/devices/virtual/video4linux/*/name | head -n1 | cut -d/ -f6); \
+  [ -n "$$dev" ] || { echo "No v4l2loopback device named $${CARD_LABEL}" >&2; exit 1; }; \
+  exec /usr/bin/v4l2-relayd -w "$${STALL_TIMEOUT_MS}" -i "$${VIDEOSRC}" \
+    -o "appsrc name=appsrc caps=video/x-raw,format=$${FORMAT},width=$${WIDTH},height=$${HEIGHT},framerate=$${FRAMERATE} ! videoconvert ! v4l2sink name=v4l2sink device=/dev/$$dev"'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
